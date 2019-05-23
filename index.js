@@ -5,13 +5,14 @@ const {
   GraphQLFloat,
   GraphQLNonNull,
   GraphQLString
-} = require('graphql')
-const { SchemaDirectiveVisitor } = require('graphql-tools')
-const ConstraintStringType = require('./scalars/string')
-const ConstraintNumberType = require('./scalars/number')
+} = require('graphql');
+const { SchemaDirectiveVisitor } = require('graphql-tools');
+const ConstraintStringType = require('./scalars/string');
+const ConstraintNumberType = require('./scalars/number');
+const { gql } = require('apollo-server');
 
 class ConstraintDirective extends SchemaDirectiveVisitor {
-  static getDirectiveDeclaration (directiveName, schema) {
+  static getDirectiveDeclaration(directiveName, schema) {
     return new GraphQLDirective({
       name: directiveName,
       locations: [
@@ -36,32 +37,63 @@ class ConstraintDirective extends SchemaDirectiveVisitor {
         exclusiveMax: { type: GraphQLFloat },
         multipleOf: { type: GraphQLFloat }
       }
-    })
+    });
   }
 
-  visitInputFieldDefinition (field) {
-    this.wrapType(field)
+  visitInputFieldDefinition(field) {
+    this.wrapType(field);
   }
 
-  visitFieldDefinition (field) {
-    this.wrapType(field)
+  visitFieldDefinition(field) {
+    this.wrapType(field);
   }
 
-  wrapType (field) {
-    const fieldName = field.astNode.name.value
+  wrapType(field) {
+    const fieldName = field.astNode.name.value;
 
-    if (field.type instanceof GraphQLNonNull && field.type.ofType === GraphQLString) {
-      field.type = new GraphQLNonNull(new ConstraintStringType(fieldName, field.type.ofType, this.args))
+    if (
+      field.type instanceof GraphQLNonNull &&
+      field.type.ofType === GraphQLString
+    ) {
+      field.type = new GraphQLNonNull(
+        new ConstraintStringType(fieldName, field.type.ofType, this.args)
+      );
     } else if (field.type === GraphQLString) {
-      field.type = new ConstraintStringType(fieldName, field.type, this.args)
-    } else if (field.type instanceof GraphQLNonNull && (field.type.ofType === GraphQLFloat || field.type.ofType === GraphQLInt)) {
-      field.type = new GraphQLNonNull(new ConstraintNumberType(fieldName, field.type.ofType, this.args))
+      field.type = new ConstraintStringType(fieldName, field.type, this.args);
+    } else if (
+      field.type instanceof GraphQLNonNull &&
+      (field.type.ofType === GraphQLFloat || field.type.ofType === GraphQLInt)
+    ) {
+      field.type = new GraphQLNonNull(
+        new ConstraintNumberType(fieldName, field.type.ofType, this.args)
+      );
     } else if (field.type === GraphQLFloat || field.type === GraphQLInt) {
-      field.type = new ConstraintNumberType(fieldName, field.type, this.args)
+      field.type = new ConstraintNumberType(fieldName, field.type, this.args);
     } else {
-      throw new Error(`Not a scalar type: ${field.type}`)
+      throw new Error(`Not a scalar type: ${field.type}`);
     }
   }
 }
 
-module.exports = ConstraintDirective
+const directives = gql`
+  directive @constraint(
+    # String constraints
+    minLength: Int
+    maxLength: Int
+    startsWith: String
+    endsWith: String
+    notContains: String
+    pattern: String
+    format: String
+
+    # Number constraints
+    min: Int
+    max: Int
+    exclusiveMin: Int
+    exclusiveMax: Int
+    multipleOf: Int
+  ) on INPUT_FIELD_DEFINITION
+`;
+
+exports.ConstraintDirective = ConstraintDirective;
+exports.directives = directives;
